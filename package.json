@@ -1,0 +1,39 @@
+{
+  "name": "@amir-kaman/sharmin",
+  "version": "1.0.0",
+  "main": "dist",
+  "types": "dist",
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "clean": "rm -rf dist",
+    "build": "tspc -p tsconfig.dist.json --rootDir ./src",
+    "prepublishOnly": "npm run build"
+  },
+  "peerDependencies": {
+    "react": ">=17.0.0",
+    "react-dom": ">=17.0.0"
+  },
+  "publishConfig": {
+    "registry": "https://npm.pkg.github.com/"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/amir-kaman/sharmin.git"
+  },
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/amir-kaman/sharmin/issues"
+  },
+  "homepage": "https://github.com/amir-kaman/sharmin#readme",
+  "description": "",
+  "devDependencies": {
+    "@types/react": "^19.1.2",
+    "ts-loader": "^9.5.2",
+    "ts-patch": "^3.3.0",
+    "tsc-alias": "^1.8.15",
+    "typescript": "^5.8.3"
+  }
+}
