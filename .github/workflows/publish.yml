@@ -16,7 +16,7 @@ jobs:
       - run: echo ${{ secrets.NPM_TOKEN }}
       - run: npm ci
       - run: npm run build
-      - run: npm publish
+      - run: npx -y semantic-release --no-ci
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
