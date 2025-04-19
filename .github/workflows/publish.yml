@@ -3,8 +3,9 @@ name: Publish Package
 on: [push]
 
 jobs:
-  publish:
+  release-stable:
     runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/master'
     permissions:
       contents: write
       issues: write
@@ -17,12 +18,35 @@ jobs:
           node-version: 18
           registry-url: https://npm.pkg.github.com/
       
-      - name: Release
-      - if: github.ref != 'refs/heads/master'
       - run: npm ci
       - run: npm run build
-      - run: echo "GithubEnv=$GITHUB_ENV, GITHUB_ACTION=$GITHUB_ACTION, RUN_ID=${{ github.run_id }}"
       - run: npx -y semantic-release --no-ci
+        env:
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  release-acceptance:
+    runs-on: ubuntu-latest
+    if: github.ref != 'refs/heads/master'
+    permissions:
+      contents: write
+      issues: write
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v3
+
+      - uses: actions/setup-node@v3
+        with: 
+          node-version: 18
+          registry-url: https://npm.pkg.github.com/
+      
+      - run: npm ci
+      - run: npm run build
+      - run: echo "@amir-kaman:registry=https://npm.pkg.github.com/" > ./dist/.npmrc
+      - run: echo "//npm.pkg.github.com/:_authToken=${NPM_TOKEN}" >> ./dist/.npmrc
+      - run: npm version prerelease --prefix dist --preid ${{ github.run_id }}
+      - run: npm publish ./dist --tag prerelease --quiet
+
         env:
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

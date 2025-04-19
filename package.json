@@ -8,7 +8,7 @@
   ],
   "scripts": {
     "clean": "rm -rf dist",
-    "build": "tspc -p tsconfig.dist.json --rootDir ./src"
+    "build": "tspc -p tsconfig.dist.json --rootDir ./src && cpy package.json ./dist"
   },
   "peerDependencies": {
     "react": "^19.1.0",
@@ -30,6 +30,7 @@
   "description": "",
   "devDependencies": {
     "@types/react": "^19.1.2",
+    "cpy-cli": "^5.0.0",
     "ts-patch": "^3.3.0",
     "typescript": "^5.8.3"
   }
