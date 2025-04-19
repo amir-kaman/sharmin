@@ -17,6 +17,8 @@ jobs:
           node-version: 18
           registry-url: https://npm.pkg.github.com/
       
+      - name: Release
+      - if: github.ref != 'refs/heads/master'
       - run: npm ci
       - run: npm run build
       - run: echo "GithubEnv=$GITHUB_ENV, GITHUB_ACTION=$GITHUB_ACTION, RUN_ID=${{ github.run_id }}"
