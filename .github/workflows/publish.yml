@@ -42,8 +42,8 @@ jobs:
       
       - run: npm ci
       - run: npm run build
-      - run: echo "@amir-kaman:registry=https://npm.pkg.github.com/" > .npmrc
-      - run: echo "//npm.pkg.github.com/:_authToken=${NPM_TOKEN}" >> .npmrc
+      - run: echo "@amir-kaman:registry=https://npm.pkg.github.com/" > ./dist/.npmrc
+      - run: echo "//npm.pkg.github.com/:_authToken=${NPM_TOKEN}" >> ./dist/.npmrc
       - run: npm version prerelease --prefix dist --preid ${{ github.run_id }}
       - run: npm publish ./dist --tag prerelease --quiet
 
