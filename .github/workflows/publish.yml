@@ -19,6 +19,7 @@ jobs:
       
       - run: npm ci
       - run: npm run build
+      - run: echo "GithubEnv=$GITHUB_ENV, GITHUB_ACTION=$GITHUB_ACTION"
       - run: npx -y semantic-release --no-ci
         env:
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
