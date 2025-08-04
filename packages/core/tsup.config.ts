@@ -6,7 +6,6 @@ export default defineConfig({
     dts: true,
     clean: true,
     external: ['react', 'react-dom'],
-    jsx: 'automatic',
     esbuildOptions: (options) => {
         // Enable Vanilla Extract processing
         options.loader = {
