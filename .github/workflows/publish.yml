@@ -158,29 +158,6 @@ jobs:
           echo "@amir-kaman:registry=https://npm.pkg.github.com/" > ./dist/.npmrc
           echo "//npm.pkg.github.com/:_authToken=${NPM_TOKEN}" >> ./dist/.npmrc
           cp package.json ./dist/package.json
-          pnpm version prerelease --dir dist --preid ${{ github.run_id }}
-          pnpm publish ./dist --tag prerelease --no-git-checks
-          cd ../..
-          
-          # Get the version that was just published for tokens
-          TOKENS_VERSION=$(node -p "require('./packages/tokens/dist/package.json').version")
-          
-          # Publish core prerelease
-          cd packages/core
-          echo "@amir-kaman:registry=https://npm.pkg.github.com/" > ./dist/.npmrc
-          echo "//npm.pkg.github.com/:_authToken=${NPM_TOKEN}" >> ./dist/.npmrc
-          # Replace workspace dependency with actual version
-          sed "s/\"@amir-kaman\/sharmin-tokens\": \"workspace:\*\"/\"@amir-kaman\/sharmin-tokens\": \"$TOKENS_VERSION\"/" package.json > ./dist/package.json
-          pnpm version prerelease --dir dist --preid ${{ github.run_id }}
-          pnpm publish ./dist --tag prerelease --no-git-checks
-          
-          echo "✅ Published prerelease packages with run_id: ${{ github.run_id }}"
-        run: |
-          # Publish tokens prerelease
-          cd packages/tokens
-          echo "@amir-kaman:registry=https://npm.pkg.github.com/" > ./dist/.npmrc
-          echo "//npm.pkg.github.com/:_authToken=${NPM_TOKEN}" >> ./dist/.npmrc
-          cp package.json ./dist/package.json
           npm version prerelease --prefix dist --preid ${{ github.run_id }}
           npm publish ./dist --tag prerelease --quiet
           cd ../..
