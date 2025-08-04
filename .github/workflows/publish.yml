@@ -177,4 +177,3 @@ jobs:
           echo "✅ Published prerelease packages with run_id: ${{ github.run_id }}"
         env:
           NPM_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        continue-on-error: true
