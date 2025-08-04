@@ -152,24 +152,27 @@ jobs:
         env:
           NPM_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Publish packages
+      - name: Publish prerelease packages
         run: |
-          # Publish tokens package
+          # Create prerelease version
+          PRERELEASE_VERSION="0.0.0-pr.${{ github.run_number }}"
+
+          # Publish tokens prerelease
           cd packages/tokens
+          npm version $PRERELEASE_VERSION --no-git-tag-version
+          mkdir -p dist
           cp package.json dist/package.json
-          npm publish dist --tag latest
+          npm publish dist --tag prerelease
           cd ../..
 
-          # Publish core package
+          # Publish core prerelease  
           cd packages/core
-          # Create a clean package.json for publishing
-          cp package.json package.json.backup
-          # Replace workspace dependency with actual version from tokens package
-          TOKENS_VERSION=$(node -p "require('./packages/tokens/package.json').version")
-          sed -i.bak "s/\"@amir-kaman\/sharmin-tokens\": \"workspace:\*\"/\"@amir-kaman\/sharmin-tokens\": \"^$TOKENS_VERSION\"/" package.json
+          # Replace workspace dependency with actual version
+          sed -i.bak "s/\"@amir-kaman\/sharmin-tokens\": \"workspace:\*\"/\"@amir-kaman\/sharmin-tokens\": \"$PRERELEASE_VERSION\"/" package.json
+          npm version $PRERELEASE_VERSION --no-git-tag-version
+          mkdir -p dist
           cp package.json dist/package.json
-          npm publish dist --tag latest
-          # Restore original package.json
-          mv package.json.backup package.json
+          npm publish dist --tag prerelease
         env:
           NPM_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        continue-on-error: true
