@@ -1,10 +1,6 @@
 name: CI/CD Pipeline
 
-on:
-  push:
-    branches: [master, main]
-  pull_request:
-    branches: [master, main]
+on: [push]
 
 jobs:
   # Test and Build Job
@@ -35,23 +31,12 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-pnpm-store-
 
-      - name: Remove problematic .npmrc
-        run: rm -f .npmrc
-
-      - name: Remove problematic .npmrc
-        run: rm -f .npmrc
-
       - name: Install dependencies
         run: pnpm install --no-frozen-lockfile
 
       - name: Run tests
         run: |
-          # Check if there are actual test files before running tests
-          if find packages/core/src -name "*.test.*" -o -name "*.spec.*" | grep -q .; then
-            pnpm --filter @amir-kaman/sharmin-core test
-          else
-            echo "No test files found in core package, skipping tests"
-          fi
+          pnpm test
 
       - name: Build packages
         run: pnpm build
@@ -61,11 +46,11 @@ jobs:
           ls -la packages/*/dist/
           echo "Build completed successfully"
 
-  # Publish Stable Release (master/main branch)
+  # Publish Stable Release (master branch)
   publish-stable:
     needs: test-and-build
     runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/master' || github.ref == 'refs/heads/main'
+    if: github.ref == 'refs/heads/master'
     permissions:
       contents: write
       issues: write
@@ -126,7 +111,6 @@ jobs:
           mv package.json.backup package.json
         env:
           NPM_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        continue-on-error: true
 
   # Publish Prerelease (other branches)
   publish-prerelease:
@@ -175,4 +159,3 @@ jobs:
           echo "This is a PR build, no publishing needed yet"
         env:
           NPM_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        continue-on-error: true
