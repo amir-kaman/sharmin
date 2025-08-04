@@ -159,3 +159,4 @@ jobs:
           echo "This is a PR build, no publishing needed yet"
         env:
           NPM_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        continue-on-error: false
