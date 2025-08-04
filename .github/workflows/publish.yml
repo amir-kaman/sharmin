@@ -170,30 +170,9 @@ jobs:
 
       - name: Publish prerelease packages
         run: |
-          # Create prerelease version
-          PRERELEASE_VERSION="0.0.0-pr.${{ github.run_number }}"
-
-          # Publish tokens prerelease
-          cd packages/tokens
-          # Create a clean package.json for publishing
-          cp package.json package.json.backup
-          npm version $PRERELEASE_VERSION --no-git-tag-version
-          cp package.json dist/package.json
-          npm publish dist --tag prerelease
-          mv package.json.backup package.json
-          cd ../..
-
-          # Publish core prerelease
-          cd packages/core
-          # Create a clean package.json for publishing
-          cp package.json package.json.backup
-          # Replace workspace dependency with actual version
-          sed -i.bak "s/\"@amir-kaman\/sharmin-tokens\": \"workspace:\*\"/\"@amir-kaman\/sharmin-tokens\": \"$PRERELEASE_VERSION\"/" package.json
-          npm version $PRERELEASE_VERSION --no-git-tag-version
-          cp package.json dist/package.json
-          npm publish dist --tag prerelease
-          # Restore original package.json
-          mv package.json.backup package.json
+          echo "Skipping prerelease publishing for now - will be implemented later"
+          echo "Branch: ${{ github.ref }}"
+          echo "This is a PR build, no publishing needed yet"
         env:
           NPM_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         continue-on-error: true
