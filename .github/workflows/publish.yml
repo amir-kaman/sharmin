@@ -154,40 +154,27 @@ jobs:
 
       - name: Publish prerelease packages
         run: |
-          run: |
-          # Create timestamp-based prerelease version (matching your existing pattern)
-          TIMESTAMP=$(date +%s)
-          PRERELEASE_VERSION="0.0.1-${TIMESTAMP}.0"
-          echo "Publishing prerelease version: $PRERELEASE_VERSION"
-
           # Publish tokens prerelease
           cd packages/tokens
-          # Create a clean package.json for publishing
-          cp package.json package.json.backup
-          npm version $PRERELEASE_VERSION --no-git-tag-version
-          mkdir -p dist
-          cp package.json dist/package.json
-          npm publish dist --tag prerelease
-          # Restore original package.json
-          mv package.json.backup package.json
+          echo "@amir-kaman:registry=https://npm.pkg.github.com/" > ./dist/.npmrc
+          echo "//npm.pkg.github.com/:_authToken=${NPM_TOKEN}" >> ./dist/.npmrc
+          cp package.json ./dist/package.json
+          npm version prerelease --prefix dist --preid ${{ github.run_id }}
+          npm publish ./dist --tag prerelease --quiet
           cd ../..
 
-          # Publish core prerelease  
-          cd packages/core
-          # Create a clean package.json for publishing
-          cp package.json package.json.backup
-          # Replace workspace dependency with actual prerelease version
-          sed -i.bak "s/\"@amir-kaman\/sharmin-tokens\": \"workspace:\*\"/\"@amir-kaman\/sharmin-tokens\": \"$PRERELEASE_VERSION\"/" package.json
-          npm version $PRERELEASE_VERSION --no-git-tag-version
-          mkdir -p dist
-          cp package.json dist/package.json
-          npm publish dist --tag prerelease
-          # Restore original package.json
-          mv package.json.backup package.json
+          # Get the version that was just published for tokens
+          TOKENS_VERSION=$(node -p "require('./packages/tokens/dist/package.json').version")
 
-          echo "✅ Published prerelease packages:"
-          echo "📦 @amir-kaman/sharmin-tokens@$PRERELEASE_VERSION"
-          echo "📦 @amir-kaman/sharmin-core@$PRERELEASE_VERSION"
+          # Publish core prerelease
+          cd packages/core
+          echo "@amir-kaman:registry=https://npm.pkg.github.com/" > ./dist/.npmrc
+          echo "//npm.pkg.github.com/:_authToken=${NPM_TOKEN}" >> ./dist/.npmrc
+          # Replace workspace dependency with actual version
+          sed "s/\"@amir-kaman\/sharmin-tokens\": \"workspace:\*\"/\"@amir-kaman\/sharmin-tokens\": \"$TOKENS_VERSION\"/" package.json > ./dist/package.json
+          npm version prerelease --prefix dist --preid ${{ github.run_id }}
+          npm publish ./dist --tag prerelease --quiet
+
         env:
           NPM_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         continue-on-error: true
