@@ -46,9 +46,11 @@ jobs:
 
       - name: Run tests
         run: |
-          # Only test packages that have actual tests
-          if [ -d "packages/core" ]; then
+          # Check if there are actual test files before running tests
+          if find packages/core/src -name "*.test.*" -o -name "*.spec.*" | grep -q .; then
             pnpm --filter @amir-kaman/sharmin-core test
+          else
+            echo "No test files found in core package, skipping tests"
           fi
 
       - name: Build packages
@@ -107,22 +109,21 @@ jobs:
         run: |
           # Publish tokens package
           cd packages/tokens
-          if [ -f "dist/package.json" ]; then
-            npm publish dist --tag latest
-          else
-            cp package.json dist/
-            npm publish dist --tag latest
-          fi
+          cp package.json dist/package.json
+          npm publish dist --tag latest
           cd ../..
 
           # Publish core package
           cd packages/core
-          if [ -f "dist/package.json" ]; then
-            npm publish dist --tag latest
-          else
-            cp package.json dist/
-            npm publish dist --tag latest
-          fi
+          # Create a clean package.json for publishing
+          cp package.json package.json.backup
+          # Replace workspace dependency with actual version from tokens package
+          TOKENS_VERSION=$(node -p "require('./packages/tokens/package.json').version")
+          sed -i.bak "s/\"@amir-kaman\/sharmin-tokens\": \"workspace:\*\"/\"@amir-kaman\/sharmin-tokens\": \"^$TOKENS_VERSION\"/" package.json
+          cp package.json dist/package.json
+          npm publish dist --tag latest
+          # Restore original package.json
+          mv package.json.backup package.json
         env:
           NPM_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         continue-on-error: true
@@ -174,22 +175,25 @@ jobs:
 
           # Publish tokens prerelease
           cd packages/tokens
+          # Create a clean package.json for publishing
+          cp package.json package.json.backup
           npm version $PRERELEASE_VERSION --no-git-tag-version
-          if [ ! -f "dist/package.json" ]; then
-            cp package.json dist/
-          fi
+          cp package.json dist/package.json
           npm publish dist --tag prerelease
+          mv package.json.backup package.json
           cd ../..
 
           # Publish core prerelease
           cd packages/core
-          # Update dependency version
+          # Create a clean package.json for publishing
+          cp package.json package.json.backup
+          # Replace workspace dependency with actual version
           sed -i.bak "s/\"@amir-kaman\/sharmin-tokens\": \"workspace:\*\"/\"@amir-kaman\/sharmin-tokens\": \"$PRERELEASE_VERSION\"/" package.json
           npm version $PRERELEASE_VERSION --no-git-tag-version
-          if [ ! -f "dist/package.json" ]; then
-            cp package.json dist/
-          fi
+          cp package.json dist/package.json
           npm publish dist --tag prerelease
+          # Restore original package.json
+          mv package.json.backup package.json
         env:
           NPM_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         continue-on-error: true
