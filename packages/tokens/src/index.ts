@@ -1,4 +1,3 @@
-// Color tokens
 export const colors = {
     // Primary palette
     primary: {
