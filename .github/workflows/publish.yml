@@ -116,7 +116,7 @@ jobs:
   publish-prerelease:
     needs: test-and-build
     runs-on: ubuntu-latest
-    if: github.ref != 'refs/heads/master' && github.ref != 'refs/heads/main'
+    if: github.ref != 'refs/heads/master'
     permissions:
       contents: write
       packages: write
@@ -152,11 +152,24 @@ jobs:
         env:
           NPM_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Publish prerelease packages
+      - name: Publish packages
         run: |
-          echo "Skipping prerelease publishing for now - will be implemented later"
-          echo "Branch: ${{ github.ref }}"
-          echo "This is a PR build, no publishing needed yet"
+          # Publish tokens package
+          cd packages/tokens
+          cp package.json dist/package.json
+          npm publish dist --tag latest
+          cd ../..
+
+          # Publish core package
+          cd packages/core
+          # Create a clean package.json for publishing
+          cp package.json package.json.backup
+          # Replace workspace dependency with actual version from tokens package
+          TOKENS_VERSION=$(node -p "require('./packages/tokens/package.json').version")
+          sed -i.bak "s/\"@amir-kaman\/sharmin-tokens\": \"workspace:\*\"/\"@amir-kaman\/sharmin-tokens\": \"^$TOKENS_VERSION\"/" package.json
+          cp package.json dist/package.json
+          npm publish dist --tag latest
+          # Restore original package.json
+          mv package.json.backup package.json
         env:
           NPM_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        continue-on-error: false
