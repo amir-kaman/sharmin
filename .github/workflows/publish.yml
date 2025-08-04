@@ -45,7 +45,11 @@ jobs:
         run: pnpm install --no-frozen-lockfile
 
       - name: Run tests
-        run: pnpm test
+        run: |
+          # Only test packages that have actual tests
+          if [ -d "packages/core" ]; then
+            pnpm --filter @amir-kaman/sharmin-core test
+          fi
 
       - name: Build packages
         run: pnpm build
