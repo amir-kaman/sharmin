@@ -154,25 +154,40 @@ jobs:
 
       - name: Publish prerelease packages
         run: |
-          # Create prerelease version
-          PRERELEASE_VERSION="0.0.0-pr.${{ github.run_number }}"
+          run: |
+          # Create timestamp-based prerelease version (matching your existing pattern)
+          TIMESTAMP=$(date +%s)
+          PRERELEASE_VERSION="0.0.1-${TIMESTAMP}.0"
+          echo "Publishing prerelease version: $PRERELEASE_VERSION"
 
           # Publish tokens prerelease
           cd packages/tokens
+          # Create a clean package.json for publishing
+          cp package.json package.json.backup
           npm version $PRERELEASE_VERSION --no-git-tag-version
           mkdir -p dist
           cp package.json dist/package.json
           npm publish dist --tag prerelease
+          # Restore original package.json
+          mv package.json.backup package.json
           cd ../..
 
           # Publish core prerelease  
           cd packages/core
-          # Replace workspace dependency with actual version
+          # Create a clean package.json for publishing
+          cp package.json package.json.backup
+          # Replace workspace dependency with actual prerelease version
           sed -i.bak "s/\"@amir-kaman\/sharmin-tokens\": \"workspace:\*\"/\"@amir-kaman\/sharmin-tokens\": \"$PRERELEASE_VERSION\"/" package.json
           npm version $PRERELEASE_VERSION --no-git-tag-version
           mkdir -p dist
           cp package.json dist/package.json
           npm publish dist --tag prerelease
+          # Restore original package.json
+          mv package.json.backup package.json
+
+          echo "✅ Published prerelease packages:"
+          echo "📦 @amir-kaman/sharmin-tokens@$PRERELEASE_VERSION"
+          echo "📦 @amir-kaman/sharmin-core@$PRERELEASE_VERSION"
         env:
           NPM_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         continue-on-error: true
