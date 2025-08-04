@@ -1,0 +1,23 @@
+{
+  "name": "@amir-kaman/sharmin-tokens",
+  "version": "0.0.0",
+  "description": "Sharmin Design System Tokens - A collection of design tokens for the Sharmin Design System",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsup --watch",
+    "clean": "rimraf dist",
+    "test": "No tests defined yet"
+  },
+  "publishConfig": {
+    "registry": "https://npm.pkg.github.com/"
+  },
+  "devDependencies": {
+    "tsup": "^8.0.1",
+    "rimraf": "^5.0.5"
+  }
+}
