@@ -1,5 +1,5 @@
-import React from "react";
+import {container} from "./Button.css";
 
 export const Button = () => (
-    <button type="button">Click me!</button>
+    <button className={container} type="button">Click me!</button>
 )
