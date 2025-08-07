@@ -1,52 +1,179 @@
-name: Publish Package
+name: Publish Packages
 
 on: [push]
 
 jobs:
-  release-stable:
+  # Test and Build Job
+  test-and-build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 18
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v3
+        with:
+          version: 8
+          run_install: false
+
+      - name: Setup pnpm cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.pnpm-store
+          key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-store-
+
+      - name: Install dependencies
+        run: pnpm install --no-frozen-lockfile
+
+      - name: Run tests
+        run: |
+          pnpm test
+
+      - name: Build packages
+        run: pnpm build
+
+      - name: Check build outputs
+        run: |
+          ls -la packages/*/dist/
+          echo "Build completed successfully"
+
+  # Publish Stable Release (master branch)
+  publish-stable:
+    needs: test-and-build
     runs-on: ubuntu-latest
     if: github.ref == 'refs/heads/master'
     permissions:
       contents: write
       issues: write
       pull-requests: write
+      packages: write
     steps:
-      - uses: actions/checkout@v3
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
-      - uses: actions/setup-node@v3
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
         with:
           node-version: 18
           registry-url: https://npm.pkg.github.com/
-      
-      - run: npm ci
-      - run: npm run build
-      - run: npx -y semantic-release --no-ci
-        env:
-          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-  release-acceptance:
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v3
+        with:
+          version: 8
+          run_install: false
+
+      - name: Remove problematic .npmrc
+        run: rm -f .npmrc
+
+      - name: Install dependencies
+        run: pnpm install --no-frozen-lockfile
+
+      - name: Build packages
+        run: pnpm build
+
+      - name: Configure npm registry for publishing
+        run: |
+          echo "@amir-kaman:registry=https://npm.pkg.github.com/" > .npmrc
+          echo "//npm.pkg.github.com/:_authToken=${NPM_TOKEN}" >> .npmrc
+        env:
+          NPM_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Publish packages
+        run: |
+          # Publish tokens package
+          cd packages/tokens
+          cp package.json dist/package.json
+          npm publish dist --tag latest
+          cd ../..
+
+          # Publish core package
+          cd packages/core
+          # Create a clean package.json for publishing
+          cp package.json package.json.backup
+          # Replace workspace dependency with actual version from tokens package
+          TOKENS_VERSION=$(node -p "require('./packages/tokens/package.json').version")
+          sed -i.bak "s/\"@amir-kaman\/sharmin-tokens\": \"workspace:\*\"/\"@amir-kaman\/sharmin-tokens\": \"^$TOKENS_VERSION\"/" package.json
+          cp package.json dist/package.json
+          npm publish dist --tag latest
+          # Restore original package.json
+          mv package.json.backup package.json
+        env:
+          NPM_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  # Publish Prerelease (other branches)
+  publish-prerelease:
+    needs: test-and-build
     runs-on: ubuntu-latest
     if: github.ref != 'refs/heads/master'
     permissions:
       contents: write
-      issues: write
-      pull-requests: write
+      packages: write
     steps:
-      - uses: actions/checkout@v3
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-      - uses: actions/setup-node@v3
-        with: 
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
           node-version: 18
           registry-url: https://npm.pkg.github.com/
-      
-      - run: npm ci
-      - run: npm run build
-      - run: echo "@amir-kaman:registry=https://npm.pkg.github.com/" > ./dist/.npmrc
-      - run: echo "//npm.pkg.github.com/:_authToken=${NPM_TOKEN}" >> ./dist/.npmrc
-      - run: npm version prerelease --prefix dist --preid ${{ github.run_id }}
-      - run: npm publish ./dist --tag prerelease --quiet
 
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v3
+        with:
+          version: 8
+          run_install: false
+
+      - name: Remove problematic .npmrc
+        run: rm -f .npmrc
+
+      - name: Install dependencies
+        run: pnpm install --no-frozen-lockfile
+
+      - name: Build packages
+        run: pnpm build
+
+      - name: Configure npm registry for publishing
+        run: |
+          echo "@amir-kaman:registry=https://npm.pkg.github.com/" > .npmrc
+          echo "//npm.pkg.github.com/:_authToken=${NPM_TOKEN}" >> .npmrc
         env:
-          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NPM_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Publish prerelease packages
+        run: |
+          # Publish tokens prerelease
+          cd packages/tokens
+          echo "@amir-kaman:registry=https://npm.pkg.github.com/" > ./dist/.npmrc
+          echo "//npm.pkg.github.com/:_authToken=${NPM_TOKEN}" >> ./dist/.npmrc
+          cp package.json ./dist/package.json
+          npm version prerelease --prefix dist --preid ${{ github.run_id }}
+          pnpm publish ./dist --tag prerelease --no-git-checks
+          cd ../..
+
+          # Get the version that was just published for tokens
+          TOKENS_VERSION=$(node -p "require('./packages/tokens/dist/package.json').version")
+
+          # Publish core prerelease
+          cd packages/core
+          echo "@amir-kaman:registry=https://npm.pkg.github.com/" > ./dist/.npmrc
+          echo "//npm.pkg.github.com/:_authToken=${NPM_TOKEN}" >> ./dist/.npmrc
+          # Replace workspace dependency with actual version
+          sed "s/\"@amir-kaman\/sharmin-tokens\": \"workspace:\*\"/\"@amir-kaman\/sharmin-tokens\": \"$TOKENS_VERSION\"/" package.json > ./dist/package.json
+          npm version prerelease --prefix dist --preid ${{ github.run_id }}
+          pnpm publish ./dist --tag prerelease --no-git-checks
+
+          echo "✅ Published prerelease packages with run_id: ${{ github.run_id }}"
+        env:
+          NPM_TOKEN: ${{ secrets.GITHUB_TOKEN }}

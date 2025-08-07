@@ -1,37 +1,38 @@
 {
   "name": "@amir-kaman/sharmin",
   "version": "0.0.0",
-  "main": "dist",
-  "types": "dist",
-  "files": [
-    "dist"
-  ],
-  "scripts": {
-    "clean": "rm -rf dist",
-    "build": "tspc -p tsconfig.dist.json --rootDir ./src && cpy package.json ./dist"
-  },
-  "peerDependencies": {
-    "react": "^19.1.0",
-    "react-dom": "^19.1.0"
-  },
-  "publishConfig": {
-    "registry": "https://npm.pkg.github.com/"
-  },
+  "private": true,
+  "description": "Sharmin Design System - A modern React component library",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/amir-kaman/sharmin.git"
   },
-  "author": "",
-  "license": "ISC",
-  "bugs": {
-    "url": "https://github.com/amir-kaman/sharmin/issues"
+  "author": "Amir Kaman",
+  "license": "MIT",
+  "workspaces": [
+    "packages/*",
+    "apps/*",
+    "tools/*"
+  ],
+  "scripts": {
+    "build": "pnpm run --recursive build",
+    "test": "pnpm run --recursive test",
+    "lint": "pnpm run --recursive lint",
+    "clean": "pnpm run --recursive clean",
+    "dev": "pnpm run --parallel dev",
+    "storybook": "pnpm --filter storybook dev",
+    "build-storybook": "pnpm --filter storybook build",
+    "changeset": "changeset",
+    "version-packages": "changeset version",
+    "release": "pnpm build && changeset publish"
   },
-  "homepage": "https://github.com/amir-kaman/sharmin#readme",
-  "description": "",
   "devDependencies": {
-    "@types/react": "^19.1.2",
-    "cpy-cli": "^5.0.0",
-    "ts-patch": "^3.3.0",
+    "@changesets/cli": "^2.27.1",
+    "@types/node": "^20.11.17",
     "typescript": "^5.8.3"
+  },
+  "engines": {
+    "node": ">=18",
+    "pnpm": ">=8"
   }
 }
