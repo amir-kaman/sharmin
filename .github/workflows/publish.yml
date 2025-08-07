@@ -92,23 +92,30 @@ jobs:
 
       - name: Publish packages
         run: |
-          # Publish tokens package
+          # For stable releases, bump patch version automatically
           cd packages/tokens
-          cp package.json dist/package.json
-          npm publish dist --tag latest
+          echo "@amir-kaman:registry=https://npm.pkg.github.com/" > ./dist/.npmrc
+          echo "//npm.pkg.github.com/:_authToken=${NPM_TOKEN}" >> ./dist/.npmrc
+          cp package.json ./dist/package.json
+          # Bump patch version for stable release
+          npm version patch --prefix dist
+          pnpm publish ./dist --tag latest --no-git-checks
           cd ../..
-
+          
+          # Get the version that was just published for tokens
+          TOKENS_VERSION=$(node -p "require('./packages/tokens/dist/package.json').version")
+          
           # Publish core package
           cd packages/core
-          # Create a clean package.json for publishing
-          cp package.json package.json.backup
-          # Replace workspace dependency with actual version from tokens package
-          TOKENS_VERSION=$(node -p "require('./packages/tokens/package.json').version")
-          sed -i.bak "s/\"@amir-kaman\/sharmin-tokens\": \"workspace:\*\"/\"@amir-kaman\/sharmin-tokens\": \"^$TOKENS_VERSION\"/" package.json
-          cp package.json dist/package.json
-          npm publish dist --tag latest
-          # Restore original package.json
-          mv package.json.backup package.json
+          echo "@amir-kaman:registry=https://npm.pkg.github.com/" > ./dist/.npmrc
+          echo "//npm.pkg.github.com/:_authToken=${NPM_TOKEN}" >> ./dist/.npmrc
+          # Replace workspace dependency with actual version
+          sed "s/\"@amir-kaman\/sharmin-tokens\": \"workspace:\*\"/\"@amir-kaman\/sharmin-tokens\": \"^$TOKENS_VERSION\"/" package.json > ./dist/package.json
+          # Bump patch version for stable release
+          npm version patch --prefix dist
+          pnpm publish ./dist --tag latest --no-git-checks
+          
+          echo "✅ Published stable packages with version: $TOKENS_VERSION"
         env:
           NPM_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
