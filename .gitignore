@@ -100,3 +100,4 @@ Thumbs.db
 .changeset/*.md
 !.changeset/README.md
 !.changeset/config.json
+*storybook.log
