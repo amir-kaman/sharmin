@@ -1,5 +1,11 @@
-import type { Preview } from '@storybook/react-vite'
+import type { Preview } from '@storybook/react-vite';
+import React from 'react';
 
+// Import the global CSS and theme
+import '../../../packages/core/src/global.css';
+import { theme } from '../../../packages/core/src/theme.css';
+
+// Apply the theme class to the body
 const preview: Preview = {
   parameters: {
     controls: {
@@ -16,6 +22,13 @@ const preview: Preview = {
       test: 'todo'
     }
   },
+  decorators: [
+    (Story) => React.createElement(
+      'div',
+      { className: theme },
+      React.createElement(Story)
+    ),
+  ],
 };
 
 export default preview;
