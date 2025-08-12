@@ -1,7 +1,7 @@
 import React, {useState} from 'react';
 import type { Meta, StoryObj } from '@storybook/react';
 import { fn } from '@storybook/test';
-import { Input } from '@amir-kaman/sharmin-core';
+import { Input } from '../../../packages/core/src/components';
 
 const meta = {
   title: 'Components/Input',
