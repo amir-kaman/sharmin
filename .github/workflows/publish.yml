@@ -48,8 +48,7 @@ jobs:
   # Semantic Release job
   semantic-release:
     needs: test-and-build
-    # if: github.event_name == 'push' || (github.event.pull_request.merged == true)
-    if: github.ref != 'refs/heads/master'
+    if: github.ref == 'refs/heads/master'
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -203,8 +202,7 @@ jobs:
   publish-prerelease:
     needs: test-and-build
     runs-on: ubuntu-latest
-    # if: github.ref != 'refs/heads/master' && github.event.pull_request.merged != true
-    if: github.ref == 'refs/heads/master'
+    if: github.ref != 'refs/heads/master'
     permissions:
       contents: write
       packages: write
