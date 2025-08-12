@@ -229,3 +229,5 @@ Card.Body = CardBody;
 Card.Footer = CardFooter;
 Card.Title = CardTitle;
 Card.Description = CardDescription;
+
+export { Card };
