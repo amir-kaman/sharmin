@@ -124,7 +124,7 @@ jobs:
   publish-stable-fallback:
     needs: [test-and-build, semantic-release]
     runs-on: ubuntu-latest
-    if: failure() && github.ref == 'refs/heads/master'  # Only if semantic-release fails
+    if: ${{ always() && github.ref == 'refs/heads/master' && needs.semantic-release.result == 'failure' }}
     permissions:
       contents: write
       issues: write
