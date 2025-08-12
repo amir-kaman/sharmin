@@ -1,9 +1,9 @@
-name: Publish Packages
+name: Release
 
 on: [push]
 
 jobs:
-  # Test and Build Job
+  # Keep your existing test-and-build job but make it reusable
   test-and-build:
     runs-on: ubuntu-latest
     steps:
@@ -15,7 +15,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 18
+          node-version: 20
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v3
@@ -35,8 +35,7 @@ jobs:
         run: pnpm install --no-frozen-lockfile
 
       - name: Run tests
-        run: |
-          pnpm test
+        run: pnpm test
 
       - name: Build packages
         run: pnpm build
@@ -46,11 +45,92 @@ jobs:
           ls -la packages/*/dist/
           echo "Build completed successfully"
 
-  # Publish Stable Release (master branch)
-  publish-stable:
+  # Semantic Release job
+  semantic-release:
     needs: test-and-build
-    runs-on: ubuntu-latest
     if: github.ref == 'refs/heads/master'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      issues: write
+      pull-requests: write
+      packages: write
+      id-token: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          registry-url: https://npm.pkg.github.com/
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v3
+        with:
+          version: 8
+          run_install: false
+
+      - name: Setup pnpm cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.pnpm-store
+          key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-store-
+
+      - name: Install dependencies
+        run: pnpm install --no-frozen-lockfile
+
+      - name: Build packages
+        run: pnpm build
+
+      - name: Create release directory
+        run: mkdir -p release
+
+      - name: Configure npm registry for semantic-release
+        run: |
+          echo "@amir-kaman:registry=https://npm.pkg.github.com/" > .npmrc
+          echo "//npm.pkg.github.com/:_authToken=${NPM_TOKEN}" >> .npmrc
+        env:
+          NPM_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Release Tokens Package
+        working-directory: packages/tokens
+        run: |
+          echo "@amir-kaman:registry=https://npm.pkg.github.com/" > .releaserc-npmrc
+          echo "//npm.pkg.github.com/:_authToken=${NPM_TOKEN}" >> .releaserc-npmrc
+          npx semantic-release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NPM_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Release Core Package
+        working-directory: packages/core
+        run: |
+          echo "@amir-kaman:registry=https://npm.pkg.github.com/" > .releaserc-npmrc
+          echo "//npm.pkg.github.com/:_authToken=${NPM_TOKEN}" >> .releaserc-npmrc
+          npx semantic-release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NPM_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Root Release (Overall versioning)
+        run: npx semantic-release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NPM_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  # Keep your existing publish jobs but make them conditional on semantic-release
+  publish-stable-fallback:
+    needs: [test-and-build, semantic-release]
+    runs-on: ubuntu-latest
+    if: failure() && github.ref == 'refs/heads/master'  # Only if semantic-release fails
     permissions:
       contents: write
       issues: write
@@ -65,7 +145,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 18
+          node-version: 20
           registry-url: https://npm.pkg.github.com/
 
       - name: Setup pnpm
@@ -90,14 +170,18 @@ jobs:
         env:
           NPM_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Publish packages
+      - name: Publish packages (fallback)
         run: |
-          # Publish tokens package with fixed version
+          # Publish tokens package with incremented version
           cd packages/tokens
           echo "@amir-kaman:registry=https://npm.pkg.github.com/" > ./dist/.npmrc
           echo "//npm.pkg.github.com/:_authToken=${NPM_TOKEN}" >> ./dist/.npmrc
           cp package.json ./dist/package.json
-          npm version 1.10.0 --prefix dist --no-git-tag-version
+          
+          # Get current version and increment patch
+          CURRENT_VERSION=$(node -p "require('./package.json').version")
+          NEW_VERSION=$(node -p "require('semver').inc('$CURRENT_VERSION', 'patch')")
+          npm version $NEW_VERSION --prefix dist --no-git-tag-version
           pnpm publish ./dist --tag latest --no-git-checks
           cd ../..
           
@@ -106,17 +190,15 @@ jobs:
           echo "@amir-kaman:registry=https://npm.pkg.github.com/" > ./dist/.npmrc
           echo "//npm.pkg.github.com/:_authToken=${NPM_TOKEN}" >> ./dist/.npmrc
           # Replace workspace dependency with actual version
-          sed "s/\"@amir-kaman\/sharmin-tokens\": \"workspace:\*\"/\"@amir-kaman\/sharmin-tokens\": \"^1.10.0\"/" package.json > ./dist/package.json
-          npm version 1.10.0 --prefix dist --no-git-tag-version
+          sed "s/\"@amir-kaman\/sharmin-tokens\": \"workspace:\*\"/\"@amir-kaman\/sharmin-tokens\": \"^$NEW_VERSION\"/" package.json > ./dist/package.json
+          npm version $NEW_VERSION --prefix dist --no-git-tag-version
           pnpm publish ./dist --tag latest --no-git-checks
           
-          echo "✅ Published stable packages at version 1.10.0"
+          echo "✅ Published fallback packages at version $NEW_VERSION"
         env:
           NPM_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}  # ← Add this line
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-
-  # Publish Prerelease (other branches)
   publish-prerelease:
     needs: test-and-build
     runs-on: ubuntu-latest
@@ -131,7 +213,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 18
+          node-version: 20
           registry-url: https://npm.pkg.github.com/
 
       - name: Setup pnpm
@@ -155,6 +237,7 @@ jobs:
           echo "//npm.pkg.github.com/:_authToken=${NPM_TOKEN}" >> .npmrc
         env:
           NPM_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          
       - name: Publish prerelease packages
         run: |
           # Publish tokens prerelease

@@ -13,7 +13,9 @@
     "clean": "rimraf dist",
     "test": "vitest run --passWithNoTests",
     "test-ui": "vitest --ui",
-    "lint": "eslint src --ext .ts,.tsx"
+    "lint": "eslint src --ext .ts,.tsx",
+    "release": "semantic-release",
+    "release:dry": "semantic-release --dry-run"
   },
   "publishConfig": {
     "registry": "https://npm.pkg.github.com/"

@@ -11,7 +11,9 @@
     "build": "tsup",
     "dev": "tsup --watch",
     "clean": "rimraf dist",
-    "test": "echo \"No tests needed for tokens package\" && exit 0"
+    "test": "echo \"No tests needed for tokens package\" && exit 0",
+    "release": "semantic-release",
+    "release:dry": "semantic-release --dry-run"
   },
   "publishConfig": {
     "registry": "https://npm.pkg.github.com/"
