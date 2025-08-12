@@ -98,8 +98,8 @@ jobs:
           echo "//npm.pkg.github.com/:_authToken=${NPM_TOKEN}" >> ./dist/.npmrc
           cp package.json ./dist/package.json
           # Bump patch version for stable release
-          npm version patch --prefix dist
-          pnpm publish ./dist --tag latest --no-git-checks
+          npx semantic-release --no-ci
+          
           cd ../..
           
           # Get the version that was just published for tokens
