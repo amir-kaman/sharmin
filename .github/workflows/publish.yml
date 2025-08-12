@@ -92,30 +92,25 @@ jobs:
 
       - name: Publish packages
         run: |
-          # For stable releases, bump patch version automatically
+          # Publish tokens package with fixed version
           cd packages/tokens
           echo "@amir-kaman:registry=https://npm.pkg.github.com/" > ./dist/.npmrc
           echo "//npm.pkg.github.com/:_authToken=${NPM_TOKEN}" >> ./dist/.npmrc
           cp package.json ./dist/package.json
-          # Bump patch version for stable release
-          npx semantic-release --no-ci
-
+          npm version 1.10.0 --prefix dist --no-git-tag-version
+          pnpm publish ./dist --tag latest --no-git-checks
           cd ../..
           
-          # Get the version that was just published for tokens
-          TOKENS_VERSION=$(node -p "require('./packages/tokens/dist/package.json').version")
-          
-          # Publish core package
+          # Publish core package with same version
           cd packages/core
           echo "@amir-kaman:registry=https://npm.pkg.github.com/" > ./dist/.npmrc
           echo "//npm.pkg.github.com/:_authToken=${NPM_TOKEN}" >> ./dist/.npmrc
           # Replace workspace dependency with actual version
-          sed "s/\"@amir-kaman\/sharmin-tokens\": \"workspace:\*\"/\"@amir-kaman\/sharmin-tokens\": \"^$TOKENS_VERSION\"/" package.json > ./dist/package.json
-          # Bump patch version for stable release
-          npm version patch --prefix dist
+          sed "s/\"@amir-kaman\/sharmin-tokens\": \"workspace:\*\"/\"@amir-kaman\/sharmin-tokens\": \"^1.10.0\"/" package.json > ./dist/package.json
+          npm version 1.10.0 --prefix dist --no-git-tag-version
           pnpm publish ./dist --tag latest --no-git-checks
           
-          echo "✅ Published stable packages with version: $TOKENS_VERSION"
+          echo "✅ Published stable packages at version 1.10.0"
         env:
           NPM_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}  # ← Add this line
