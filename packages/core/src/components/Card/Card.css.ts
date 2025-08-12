@@ -31,7 +31,7 @@ export const cardContainer = recipe({
     
     size: {
       sm: {
-        maxWidth: '320px',
+        maxWidth: '321px',
       },
       md: {
         maxWidth: '400px',
