@@ -120,12 +120,6 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NPM_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Root Release (Overall versioning)
-        run: npx semantic-release
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          NPM_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
   # Keep your existing publish jobs but make them conditional on semantic-release
   publish-stable-fallback:
     needs: [test-and-build, semantic-release]
