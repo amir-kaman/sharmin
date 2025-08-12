@@ -1,10 +1,39 @@
 {
-  "extends": "semantic-release-monorepo",
   "branches": ["master"],
+  "repositoryUrl": "https://github.com/amir-kaman/sharmin",
   "tagFormat": "core-v${version}",
   "plugins": [
-    "@semantic-release/commit-analyzer",
-    "@semantic-release/release-notes-generator",
+    [
+      "@semantic-release/commit-analyzer",
+      {
+        "preset": "conventionalcommits",
+        "releaseRules": [
+          {"type": "feat", "scope": "core", "release": "minor"},
+          {"type": "fix", "scope": "core", "release": "patch"},
+          {"type": "perf", "scope": "core", "release": "patch"},
+          {"breaking": true, "scope": "core", "release": "major"},
+          {"type": "feat", "scope": "*", "release": false},
+          {"type": "fix", "scope": "*", "release": false}
+        ],
+        "parserOpts": {
+          "noteKeywords": ["BREAKING CHANGE", "BREAKING CHANGES"]
+        }
+      }
+    ],
+    [
+      "@semantic-release/release-notes-generator",
+      {
+        "preset": "conventionalcommits",
+        "presetConfig": {
+          "types": [
+            {"type": "feat", "section": "Features"},
+            {"type": "fix", "section": "Bug Fixes"},
+            {"type": "perf", "section": "Performance Improvements"},
+            {"type": "docs", "section": "Documentation", "hidden": false}
+          ]
+        }
+      }
+    ],
     [
       "@semantic-release/changelog",
       {
@@ -14,6 +43,7 @@
     [
       "@semantic-release/npm",
       {
+        "npmPublish": true,
         "pkgRoot": "dist",
         "tarballDir": "../../release"
       }
@@ -22,7 +52,7 @@
       "@semantic-release/git",
       {
         "assets": ["CHANGELOG.md", "package.json"],
-        "message": "chore(core): release v${nextRelease.version} [skip ci]"
+        "message": "chore(core): release v${nextRelease.version} [skip ci]\n\n${nextRelease.notes}"
       }
     ],
     [
