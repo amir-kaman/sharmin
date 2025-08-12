@@ -1,13 +1,6 @@
 name: Release
 
-on:
-  push:
-    branches:
-      - master
-  pull_request:
-    types: [closed]
-    branches:
-      - master
+on: [push]
 
 jobs:
   # Keep your existing test-and-build job but make it reusable
