@@ -99,7 +99,7 @@ jobs:
           cp package.json ./dist/package.json
           # Bump patch version for stable release
           npx semantic-release --no-ci
-          
+
           cd ../..
           
           # Get the version that was just published for tokens
@@ -118,6 +118,8 @@ jobs:
           echo "✅ Published stable packages with version: $TOKENS_VERSION"
         env:
           NPM_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}  # ← Add this line
+
 
   # Publish Prerelease (other branches)
   publish-prerelease:
