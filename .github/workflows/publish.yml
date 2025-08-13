@@ -140,9 +140,14 @@ jobs:
           HUSKY: 0
         run: npx semantic-release
 
-      - name: Read released tokens version
-        id: tokens_ver
-        run: echo "version=$(node -p \"require('./packages/tokens/dist/package.json').version\")" >> $GITHUB_OUTPUT
+      - name: Read tokens version to step output
+        id: tokens_version
+        shell: bash
+        run: |
+          set -euo pipefail
+          VERSION=$(node -p 'require("./packages/tokens/dist/package.json").version')
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+
 
       # ---- CORE RELEASE ----
       - name: Sanitize dist/package.json (core)
