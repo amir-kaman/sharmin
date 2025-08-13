@@ -101,22 +101,36 @@ jobs:
 
       # ---- TOKENS RELEASE ----
       - name: Sanitize dist/package.json (tokens)
-        working-directory: packages/tokens
+        working-directory: packages/tokens/dist
         run: |
-          mkdir -p dist
+          # build a clean package.json for publish (read the source one one level up)
           node - <<'NODE'
           const fs = require('fs');
-          const p = JSON.parse(fs.readFileSync('package.json','utf8'));
+          const src = JSON.parse(fs.readFileSync('../package.json','utf8'));
+
+          // keep only what you need to publish
+          const keep = ['name','version','description','license','author','repository','bugs','homepage','keywords','type','exports','main','module','typings','types','files','publishConfig','engines','peerDependencies','dependencies','optionalDependencies'];
+          const p = {};
+          for (const k of keep) if (src[k] != null) p[k] = src[k];
+
+          // drop dev-only
           delete p.devDependencies;
           delete p.scripts;
-          for (const k of ['dependencies','peerDependencies','optionalDependencies']) {
-            if (p[k]) for (const dep of Object.keys(p[k])) {
-              const v = String(p[k][dep] ?? '');
-              if (v.startsWith('workspace:')) p[k][dep] = '*';
+
+          // normalize workspace:*
+          for (const sec of ['dependencies','peerDependencies','optionalDependencies']) {
+            if (p[sec]) for (const d of Object.keys(p[sec])) {
+              const v = String(p[sec][d] ?? '');
+              if (v.startsWith('workspace:')) p[sec][d] = '*';
             }
           }
-          fs.writeFileSync('dist/package.json', JSON.stringify(p, null, 2));
+
+          // ensure files list (optional, but nice)
+          if (!p.files) p.files = ['dist', '*.d.ts', '*.d.mts', '*.mjs', '*.js'];
+
+          fs.writeFileSync('package.json', JSON.stringify(p, null, 2));
           NODE
+
 
       - name: Release Tokens Package
         working-directory: packages/tokens
@@ -131,29 +145,36 @@ jobs:
 
       # ---- CORE RELEASE ----
       - name: Sanitize dist/package.json (core)
-        working-directory: packages/core
+        working-directory: packages/core/dist
         env:
           TOKENS_VERSION: ${{ steps.tokens_ver.outputs.version }}
         run: |
-          mkdir -p dist
-          node -e "process.env.TOKENS_VERSION=process.env.TOKENS_VERSION||'*'" - <<'NODE'
+          node - <<'NODE'
           const fs = require('fs');
           const tokensVersion = process.env.TOKENS_VERSION || '*';
-          const p = JSON.parse(fs.readFileSync('package.json','utf8'));
+          const src = JSON.parse(fs.readFileSync('../package.json','utf8'));
+
+          const keep = ['name','version','description','license','author','repository','bugs','homepage','keywords','type','exports','main','module','typings','types','files','publishConfig','engines','peerDependencies','dependencies','optionalDependencies'];
+          const p = {};
+          for (const k of keep) if (src[k] != null) p[k] = src[k];
+
           delete p.devDependencies;
           delete p.scripts;
-          for (const k of ['dependencies','peerDependencies','optionalDependencies']) {
-            if (p[k]) for (const dep of Object.keys(p[k])) {
-              const v = String(p[k][dep] ?? '');
+
+          for (const sec of ['dependencies','peerDependencies','optionalDependencies']) {
+            if (p[sec]) for (const d of Object.keys(p[sec])) {
+              const v = String(p[sec][d] ?? '');
               if (v.startsWith('workspace:')) {
-                p[k][dep] = dep === '@amir-kaman/sharmin-tokens'
-                  ? `^${tokensVersion}`
-                  : '*';
+                p[sec][d] = d === '@amir-kaman/sharmin-tokens' ? `^${tokensVersion}` : '*';
               }
             }
           }
-          fs.writeFileSync('dist/package.json', JSON.stringify(p, null, 2));
+
+          if (!p.files) p.files = ['dist', '*.d.ts', '*.d.mts', '*.mjs', '*.js'];
+
+          fs.writeFileSync('package.json', JSON.stringify(p, null, 2));
           NODE
+
 
       - name: Release Core Package
         working-directory: packages/core

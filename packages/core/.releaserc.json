@@ -1,4 +1,6 @@
 {
+  "branches": ["master"],
+  "tagFormat": "core-v${version}",
   "plugins": [
     "@semantic-release/commit-analyzer",
     "@semantic-release/release-notes-generator",
