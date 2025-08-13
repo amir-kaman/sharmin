@@ -2,8 +2,11 @@ name: Release
 
 on: [push]
 
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
-  # Keep your existing test-and-build job but make it reusable
   test-and-build:
     runs-on: ubuntu-latest
     steps:
@@ -42,10 +45,9 @@ jobs:
 
       - name: Check build outputs
         run: |
-          ls -la packages/*/dist/
+          ls -la packages/*/dist/ || true
           echo "Build completed successfully"
 
-  # Semantic Release job
   semantic-release:
     needs: test-and-build
     if: github.ref == 'refs/heads/master'
@@ -87,49 +89,89 @@ jobs:
       - name: Install dependencies
         run: pnpm install --no-frozen-lockfile
 
-      - name: Build packages
+      - name: Build packages (for dist/)
         run: pnpm build
 
-      - name: Create release directory
-        run: mkdir -p release
-
-      - name: Configure npm registry for semantic-release
+      - name: Configure npm registry (GitHub Packages)
         run: |
           echo "@amir-kaman:registry=https://npm.pkg.github.com/" > .npmrc
           echo "//npm.pkg.github.com/:_authToken=${NPM_TOKEN}" >> .npmrc
         env:
           NPM_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Release Tokens Package
+      # ---- TOKENS RELEASE ----
+      - name: Sanitize dist/package.json (tokens)
         working-directory: packages/tokens
         run: |
-          echo "@amir-kaman:registry=https://npm.pkg.github.com/" > .releaserc-npmrc
-          echo "//npm.pkg.github.com/:_authToken=${NPM_TOKEN}" >> .releaserc-npmrc
-          npx semantic-release
+          mkdir -p dist
+          node - <<'NODE'
+          const fs = require('fs');
+          const p = JSON.parse(fs.readFileSync('package.json','utf8'));
+          delete p.devDependencies;
+          delete p.scripts;
+          for (const k of ['dependencies','peerDependencies','optionalDependencies']) {
+            if (p[k]) for (const dep of Object.keys(p[k])) {
+              const v = String(p[k][dep] ?? '');
+              if (v.startsWith('workspace:')) p[k][dep] = '*';
+            }
+          }
+          fs.writeFileSync('dist/package.json', JSON.stringify(p, null, 2));
+          NODE
+
+      - name: Release Tokens Package
+        working-directory: packages/tokens
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NPM_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: npx semantic-release
+
+      - name: Read released tokens version
+        id: tokens_ver
+        run: echo "version=$(node -p \"require('./packages/tokens/dist/package.json').version\")" >> $GITHUB_OUTPUT
+
+      # ---- CORE RELEASE ----
+      - name: Sanitize dist/package.json (core)
+        working-directory: packages/core
+        env:
+          TOKENS_VERSION: ${{ steps.tokens_ver.outputs.version }}
+        run: |
+          mkdir -p dist
+          node -e "process.env.TOKENS_VERSION=process.env.TOKENS_VERSION||'*'" - <<'NODE'
+          const fs = require('fs');
+          const tokensVersion = process.env.TOKENS_VERSION || '*';
+          const p = JSON.parse(fs.readFileSync('package.json','utf8'));
+          delete p.devDependencies;
+          delete p.scripts;
+          for (const k of ['dependencies','peerDependencies','optionalDependencies']) {
+            if (p[k]) for (const dep of Object.keys(p[k])) {
+              const v = String(p[k][dep] ?? '');
+              if (v.startsWith('workspace:')) {
+                p[k][dep] = dep === '@amir-kaman/sharmin-tokens'
+                  ? `^${tokensVersion}`
+                  : '*';
+              }
+            }
+          }
+          fs.writeFileSync('dist/package.json', JSON.stringify(p, null, 2));
+          NODE
 
       - name: Release Core Package
         working-directory: packages/core
-        run: |
-          echo "@amir-kaman:registry=https://npm.pkg.github.com/" > .releaserc-npmrc
-          echo "//npm.pkg.github.com/:_authToken=${NPM_TOKEN}" >> .releaserc-npmrc
-          npx semantic-release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NPM_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: npx semantic-release
 
-  # Keep your existing publish jobs but make them conditional on semantic-release
   publish-stable-fallback:
     needs: [test-and-build, semantic-release]
     runs-on: ubuntu-latest
-    if: ${{ always() && github.ref == 'refs/heads/master' && needs.semantic-release.result == 'failure' }}
+    if: ${{ always() && github.ref == 'refs/heads/master' && (needs.semantic-release.result == 'failure' || needs.semantic-release.result == 'cancelled') }}
     permissions:
       contents: write
       issues: write
       pull-requests: write
       packages: write
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -148,7 +190,7 @@ jobs:
           version: 8
           run_install: false
 
-      - name: Remove problematic .npmrc
+      - name: Remove any existing .npmrc
         run: rm -f .npmrc
 
       - name: Install dependencies
@@ -157,41 +199,70 @@ jobs:
       - name: Build packages
         run: pnpm build
 
-      - name: Configure npm registry for publishing
+      - name: Configure npm registry
         run: |
           echo "@amir-kaman:registry=https://npm.pkg.github.com/" > .npmrc
           echo "//npm.pkg.github.com/:_authToken=${NPM_TOKEN}" >> .npmrc
         env:
           NPM_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Publish packages (fallback)
-        run: |
-          # Publish tokens package with incremented version
-          cd packages/tokens
-          echo "@amir-kaman:registry=https://npm.pkg.github.com/" > ./dist/.npmrc
-          echo "//npm.pkg.github.com/:_authToken=${NPM_TOKEN}" >> ./dist/.npmrc
-          cp package.json ./dist/package.json
-          
-          # Get current version and increment patch
-          CURRENT_VERSION=$(node -p "require('./package.json').version")
-          NEW_VERSION=$(node -p "require('semver').inc('$CURRENT_VERSION', 'patch')")
-          npm version $NEW_VERSION --prefix dist --no-git-tag-version
-          pnpm publish ./dist --tag latest --no-git-checks
-          cd ../..
-          
-          # Publish core package with same version
-          cd packages/core
-          echo "@amir-kaman:registry=https://npm.pkg.github.com/" > ./dist/.npmrc
-          echo "//npm.pkg.github.com/:_authToken=${NPM_TOKEN}" >> ./dist/.npmrc
-          # Replace workspace dependency with actual version
-          sed "s/\"@amir-kaman\/sharmin-tokens\": \"workspace:\*\"/\"@amir-kaman\/sharmin-tokens\": \"^$NEW_VERSION\"/" package.json > ./dist/package.json
-          npm version $NEW_VERSION --prefix dist --no-git-tag-version
-          pnpm publish ./dist --tag latest --no-git-checks
-          
-          echo "✅ Published fallback packages at version $NEW_VERSION"
+      - name: Publish tokens (fallback)
+        working-directory: packages/tokens
         env:
           NPM_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          mkdir -p dist
+          # sanitize dist/package.json
+          node - <<'NODE'
+          const fs = require('fs');
+          const p = JSON.parse(fs.readFileSync('package.json','utf8'));
+          delete p.devDependencies;
+          delete p.scripts;
+          for (const k of ['dependencies','peerDependencies','optionalDependencies']) {
+            if (p[k]) for (const dep of Object.keys(p[k])) {
+              const v = String(p[k][dep] ?? '');
+              if (v.startsWith('workspace:')) p[k][dep] = '*';
+            }
+          }
+          fs.writeFileSync('dist/package.json', JSON.stringify(p, null, 2));
+          NODE
+          # bump patch in dist
+          npm version patch --prefix dist --no-git-tag-version
+          pnpm publish ./dist --tag latest --no-git-checks
+
+      - name: Read tokens version (fallback)
+        id: tokens_ver_fb
+        run: echo "version=$(node -p \"require('./packages/tokens/dist/package.json').version\")" >> $GITHUB_OUTPUT
+
+      - name: Publish core (fallback)
+        working-directory: packages/core
+        env:
+          NPM_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TOKENS_VERSION: ${{ steps.tokens_ver_fb.outputs.version }}
+        run: |
+          mkdir -p dist
+          # sanitize and inject tokens version
+          node -e "process.env.TOKENS_VERSION=process.env.TOKENS_VERSION||'*'" - <<'NODE'
+          const fs = require('fs');
+          const tokensVersion = process.env.TOKENS_VERSION || '*';
+          const p = JSON.parse(fs.readFileSync('package.json','utf8'));
+          delete p.devDependencies;
+          delete p.scripts;
+          for (const k of ['dependencies','peerDependencies','optionalDependencies']) {
+            if (p[k]) for (const dep of Object.keys(p[k])) {
+              const v = String(p[k][dep] ?? '');
+              if (v.startsWith('workspace:')) {
+                p[k][dep] = dep === '@amir-kaman/sharmin-tokens'
+                  ? `^${tokensVersion}`
+                  : '*';
+              }
+            }
+          }
+          fs.writeFileSync('dist/package.json', JSON.stringify(p, null, 2));
+          NODE
+          npm version patch --prefix dist --no-git-tag-version
+          pnpm publish ./dist --tag latest --no-git-checks
+          echo "✅ Fallback published tokens:${{ steps.tokens_ver_fb.outputs.version }} and core (patch)"
 
   publish-prerelease:
     needs: test-and-build
@@ -200,9 +271,12 @@ jobs:
     permissions:
       contents: write
       packages: write
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -216,7 +290,7 @@ jobs:
           version: 8
           run_install: false
 
-      - name: Remove problematic .npmrc
+      - name: Remove any existing .npmrc
         run: rm -f .npmrc
 
       - name: Install dependencies
@@ -225,36 +299,66 @@ jobs:
       - name: Build packages
         run: pnpm build
 
-      - name: Configure npm registry for publishing
+      - name: Configure npm registry
         run: |
           echo "@amir-kaman:registry=https://npm.pkg.github.com/" > .npmrc
           echo "//npm.pkg.github.com/:_authToken=${NPM_TOKEN}" >> .npmrc
         env:
           NPM_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          
-      - name: Publish prerelease packages
-        run: |
-          # Publish tokens prerelease
-          cd packages/tokens
-          echo "@amir-kaman:registry=https://npm.pkg.github.com/" > ./dist/.npmrc
-          echo "//npm.pkg.github.com/:_authToken=${NPM_TOKEN}" >> ./dist/.npmrc
-          cp package.json ./dist/package.json
-          npm version prerelease --prefix dist --preid ${{ github.run_id }}
-          pnpm publish ./dist --tag prerelease --no-git-checks
-          cd ../..
 
-          # Get the version that was just published for tokens
-          TOKENS_VERSION=$(node -p "require('./packages/tokens/dist/package.json').version")
-
-          # Publish core prerelease
-          cd packages/core
-          echo "@amir-kaman:registry=https://npm.pkg.github.com/" > ./dist/.npmrc
-          echo "//npm.pkg.github.com/:_authToken=${NPM_TOKEN}" >> ./dist/.npmrc
-          # Replace workspace dependency with actual version
-          sed "s/\"@amir-kaman\/sharmin-tokens\": \"workspace:\*\"/\"@amir-kaman\/sharmin-tokens\": \"$TOKENS_VERSION\"/" package.json > ./dist/package.json
-          npm version prerelease --prefix dist --preid ${{ github.run_id }}
-          pnpm publish ./dist --tag prerelease --no-git-checks
-
-          echo "✅ Published prerelease packages with run_id: ${{ github.run_id }}"
+      - name: Publish tokens (prerelease)
+        working-directory: packages/tokens
         env:
           NPM_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RUN_ID: ${{ github.run_id }}
+        run: |
+          mkdir -p dist
+          node - <<'NODE'
+          const fs = require('fs');
+          const p = JSON.parse(fs.readFileSync('package.json','utf8'));
+          delete p.devDependencies;
+          delete p.scripts;
+          for (const k of ['dependencies','peerDependencies','optionalDependencies']) {
+            if (p[k]) for (const dep of Object.keys(p[k])) {
+              const v = String(p[k][dep] ?? '');
+              if (v.startsWith('workspace:')) p[k][dep] = '*';
+            }
+          }
+          fs.writeFileSync('dist/package.json', JSON.stringify(p, null, 2));
+          NODE
+          npm version prerelease --prefix dist --preid $RUN_ID --no-git-tag-version
+          pnpm publish ./dist --tag prerelease --no-git-checks
+
+      - name: Read tokens version (prerelease)
+        id: tokens_ver_pr
+        run: echo "version=$(node -p \"require('./packages/tokens/dist/package.json').version\")" >> $GITHUB_OUTPUT
+
+      - name: Publish core (prerelease)
+        working-directory: packages/core
+        env:
+          NPM_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RUN_ID: ${{ github.run_id }}
+          TOKENS_VERSION: ${{ steps.tokens_ver_pr.outputs.version }}
+        run: |
+          mkdir -p dist
+          node -e "process.env.TOKENS_VERSION=process.env.TOKENS_VERSION||'*'" - <<'NODE'
+          const fs = require('fs');
+          const tokensVersion = process.env.TOKENS_VERSION || '*';
+          const p = JSON.parse(fs.readFileSync('package.json','utf8'));
+          delete p.devDependencies;
+          delete p.scripts;
+          for (const k of ['dependencies','peerDependencies','optionalDependencies']) {
+            if (p[k]) for (const dep of Object.keys(p[k])) {
+              const v = String(p[k][dep] ?? '');
+              if (v.startsWith('workspace:')) {
+                p[k][dep] = dep === '@amir-kaman/sharmin-tokens'
+                  ? `${tokensVersion}`
+                  : '*';
+              }
+            }
+          }
+          fs.writeFileSync('dist/package.json', JSON.stringify(p, null, 2));
+          NODE
+          npm version prerelease --prefix dist --preid $RUN_ID --no-git-tag-version
+          pnpm publish ./dist --tag prerelease --no-git-checks
+
