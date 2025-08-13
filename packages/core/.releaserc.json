@@ -5,9 +5,6 @@
     "@semantic-release/commit-analyzer",
     "@semantic-release/release-notes-generator",
     ["@semantic-release/changelog", { "changelogFile": "CHANGELOG.md" }],
-    ["@semantic-release/exec", {
-      "prepareCmd": "node -e \"const fs=require('fs');const p='dist/package.json';const j=JSON.parse(fs.readFileSync(p));j.version='${nextRelease.version}';fs.writeFileSync(p,JSON.stringify(j,null,2));console.log('ensure version', j.version)\""
-    }],
     ["@semantic-release/git", {
       "assets": ["CHANGELOG.md"],
       "message": "chore(core): release ${nextRelease.version} [skip ci]"
