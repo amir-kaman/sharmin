@@ -1,3 +1,12 @@
+# [1.3.0](https://github.com/amir-kaman/sharmin/compare/tokens-v1.2.0...tokens-v1.3.0) (2025-08-13)
+
+
+### Features
+
+* **release:** tokens new version ([715fd38](https://github.com/amir-kaman/sharmin/commit/715fd385f57ce4107a50ee24748078f874d8dbd9))
+* **release:** tokens new version ([e5c0e05](https://github.com/amir-kaman/sharmin/commit/e5c0e05f89eaa7d2ac710c4a4019bff8f04edb5e))
+* **release:** tokens new version ([7c935ee](https://github.com/amir-kaman/sharmin/commit/7c935ee24445f817af6dac4bf091c159a5b1de64))
+
 # [1.2.0](https://github.com/amir-kaman/sharmin/compare/tokens-v1.1.0...tokens-v1.2.0) (2025-08-13)
 
 
