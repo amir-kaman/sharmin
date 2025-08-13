@@ -10,7 +10,6 @@
       "assets": ["CHANGELOG.md", "package.json"],
       "message": "chore(tokens): ${nextRelease.version} [skip ci]\n\n${nextRelease.notes}"
     }],
-    ["@semantic-release/github", { "labels": ["release"] }],
-    ["@semantic-release/exec", { "successCmd": "echo ${nextRelease.version} > ../../.tokens_version" }]
+    ["@semantic-release/github", { "labels": ["release"] }]
   ]
 }
